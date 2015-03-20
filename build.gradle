@@ -1,0 +1,48 @@
+apply plugin: 'ivy-publish'
+
+def pom = new XmlSlurper().parse('pom.xml')
+group = pom.groupId
+version = pom.version
+buildDir = file('bin')
+
+class OS {
+  static def name = System.properties['os.name'].toLowerCase()
+  static def isWindows() {
+    name.contains('windows')
+  }
+}
+
+task build(type: Exec) {
+  inputs.source 'src'
+  outputs.dir 'target'
+  executable (OS.isWindows() ? 'mvn.bat' : 'mvn')
+  args 'package'
+}
+
+task zip(type: Zip, dependsOn: build) {
+  baseName project.name
+  from ('target') {
+    include "CouchbaseMock-${project.version}-*.jar"
+    // strip version number from jar
+    rename { fileName -> "CouchbaseMock.jar" }
+  }
+  destinationDir buildDir
+}
+
+task clean(type: Delete) {
+  delete 'build'
+}
+
+publishing {
+  repositories {
+    ivy { url '../artifacts' }
+  }
+
+  publications {
+    zippedJar(IvyPublication) {
+      artifact zip
+    }
+  }
+}
+
+defaultTasks 'publish'
